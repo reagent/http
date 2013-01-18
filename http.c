@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <unistd.h>
 
+#include "dbg.h"
 #include "buffer.h"
 
 #define RECV_SIZE 64
@@ -12,20 +13,13 @@
 int
 init_connection(char *hostname, char *port, struct addrinfo **res)
 {
-    int status = 0;
     struct addrinfo hints;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
-    status = getaddrinfo(hostname, port, &hints, res);
-    if (status != 0) {
-        printf("Could not resolve host: %s\n", gai_strerror(status));
-        return -1;
-    }
-
-    return status;
+    return getaddrinfo(hostname, port, &hints, res);
 }
 
 int
@@ -34,18 +28,15 @@ make_connection(struct addrinfo *res)
     int sockfd, status;
 
     sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sockfd == -1) {
-        printf("Could not initialize socket\n");
-        return -1;
-    }
+    jump_unless(sockfd > 0);
 
     status = connect(sockfd, res->ai_addr, res->ai_addrlen);
-    if (status == -1) {
-        printf("Could not connect to host\n");
-        return status;
-    }
+    jump_unless(status == 0);
 
     return sockfd;
+
+error:
+    return -1;
 }
 
 char *
@@ -67,6 +58,7 @@ make_request(int sockfd, char *hostname)
     size_t bytes_sent = 0;
     char *request = build_request(hostname);
 
+    // TODO: ensure we send entire request
     bytes_sent = send(sockfd, request, strlen(request), 0);
 
     free(request);
@@ -101,6 +93,7 @@ fetch_response(int sockfd, Buffer **response, int recv_size)
 int
 main(int argc, char *argv[])
 {
+
     Buffer *response = buffer_alloc(BUF_SIZE);
 
     int status = 0;
@@ -122,28 +115,19 @@ main(int argc, char *argv[])
         }
     }
 
-    if (strlen(hostname) == 0) {
-        printf("Hostname not supplied\n");
-        goto error;
-    }
+    error_unless(strlen(hostname) > 0, "Hostname not supplied");
 
     status = init_connection(hostname, port, &res);
-    if (status < 0 ) { goto error; }
+    error_unless(status == 0, "Could not resolve host: %s\n", gai_strerror(status));
 
     sockfd = make_connection(res);
-    if (sockfd < 0) { goto error; }
+    error_unless(sockfd > 0, "Could not make connection to '%s' on port '%s'", hostname, port);
 
     status = make_request(sockfd, hostname);
-    if (status < 0) {
-        printf("Request failed.\n");
-        goto error;
-    }
+    error_unless(status > 0, "Sending request failed");
 
     status = fetch_response(sockfd, &response, RECV_SIZE);
-    if (status < 0) {
-        printf("Fetching response failed.\n");
-        goto error;
-    }
+    error_unless(status >= 0, "Fetching response failed");
 
     printf("%s\n", response->contents);
 
