@@ -31,7 +31,7 @@ buffer_free(Buffer *buf)
 int
 buffer_has_space(Buffer *buf, int desired_length)
 {
-    return desired_length <= (buf->total_size - buf->bytes_used - 1);
+    return desired_length <= (buf->total_size - buffer_len(buf));
 }
 
 int
