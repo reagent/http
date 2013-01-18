@@ -55,15 +55,28 @@ build_request(char *hostname)
 int
 make_request(int sockfd, char *hostname)
 {
-    size_t bytes_sent = 0;
-    char *request = build_request(hostname);
+    char *request           = build_request(hostname);
+    size_t bytes_sent       = 0;
+    size_t total_bytes_sent = 0;
+    size_t bytes_to_send    = strlen(request);
 
-    // TODO: ensure we send entire request
-    bytes_sent = send(sockfd, request, strlen(request), 0);
+
+    debug("Bytes to send: %ld", bytes_to_send);
+
+    for (;;) {
+        bytes_sent = send(sockfd, request, strlen(request), 0);
+        total_bytes_sent += bytes_sent;
+
+        debug("Bytes sent: %ld", bytes_sent);
+
+        if (total_bytes_sent >= bytes_to_send) {
+            break;
+        }
+    }
 
     free(request);
 
-    return bytes_sent;
+    return total_bytes_sent;
 }
 
 int
