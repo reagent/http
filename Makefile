@@ -1,12 +1,21 @@
 CFLAGS=-Wall -g -I/usr/local/uriparser/include/uriparser
 LDFLAGS=-L/usr/local/uriparser/lib -luriparser
 
-all: http
+SOURCES=$(wildcard src/**/*.c src/*.c)
+OBJECTS=$(patsubst %.c,%.o,$(SOURCES))
 
-http: buffer.o http.o
+TARGET=bin/http
 
-dev:CFLAGS=-DNDEBUG
+all: $(TARGET)
+
+$(TARGET): build $(OBJECTS)
+	$(CC) $(LDFLAGS) -o $@ $(OBJECTS)
+
+build:
+	@mkdir -p bin
+
+dev:CFLAGS+=-DNDEBUG
 dev: all
 
 clean:
-	rm -rf http *.o *.dSYM
+	rm -rf bin/http src/*.o *.dSYM

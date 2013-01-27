@@ -197,7 +197,7 @@ main(int argc, char *argv[])
 
     fetch_path(&path, uri);
 
-    port = fetch_port(port_from_uri, DEFAULT_PORT)
+    port = fetch_port(port_from_uri, DEFAULT_PORT);
 
     debug("Using '%s' as hostname, '%s' for port", hostname, port);
 
