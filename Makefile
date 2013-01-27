@@ -1,4 +1,5 @@
-CFLAGS=-Wall -g
+CFLAGS=-Wall -g -I/usr/local/uriparser/include/uriparser
+LDFLAGS=-L/usr/local/uriparser/lib -luriparser
 
 all: http
 
