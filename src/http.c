@@ -5,9 +5,10 @@
 #include <unistd.h>
 
 #include <Uri.h>
+#include "url.h"
 
 #include "dbg.h"
-#include "buffer.h"
+#include <buffer.h>
 
 #define RECV_SIZE 1024
 #define BUF_SIZE  RECV_SIZE + 1
@@ -45,13 +46,15 @@ error:
 char *
 build_request(char *hostname, char *request_path)
 {
-    char *request = calloc(1, 256 * sizeof(char)); // TODO: Use buffer here
+    char *request = NULL;
+    Buffer *request_buffer = buffer_alloc(BUF_SIZE);
 
-    strncat(request, "GET ", 4);
-    strncat(request, request_path, strlen(request_path));
-    strncat(request, " HTTP/1.0\r\nHost: ", 19);
-    strncat(request, hostname, strlen(hostname));
-    strncat(request, "\r\nConnection: close\r\n\r\n", 23);
+    buffer_appendf(request_buffer, "GET %s HTTP/1.0\r\n", request_path);
+    buffer_appendf(request_buffer, "Host: %s\r\n", hostname);
+    buffer_appendf(request_buffer, "Connection: close\r\n\r\n");
+
+    request = buffer_to_s(request_buffer);
+    buffer_free(request_buffer);
 
     return request;
 }
@@ -63,7 +66,6 @@ make_request(int sockfd, char *hostname, char *request_path)
     size_t bytes_sent       = 0;
     size_t total_bytes_sent = 0;
     size_t bytes_to_send    = strlen(request);
-
 
     debug("Bytes to send: %ld", bytes_to_send);
 
@@ -90,6 +92,8 @@ fetch_response(int sockfd, Buffer **response, int recv_size)
     int status = 0;
     char data[recv_size];
 
+    debug("Receiving data ...");
+
     while (1) {
         bytes_received = recv(sockfd, data, RECV_SIZE, 0);
 
@@ -100,89 +104,29 @@ fetch_response(int sockfd, Buffer **response, int recv_size)
         }
 
         if (bytes_received > 0) {
-            buffer_append(*response, data, bytes_received);
+            status = buffer_append(*response, data, bytes_received);
+            if (status != 0) {
+                fprintf(stderr, "Failed to append to buffer.\n");
+                return -1;
+            }
         }
     }
 
+    debug("Finished receiving data.");
+
     return status;
-}
-
-int
-length_of(UriTextRangeA *part)
-{
-    return part->afterLast - part->first;
-}
-
-char *
-fetch_uri_part(UriTextRangeA *part)
-{
-    int length = length_of(part);
-
-    if (length <= 0) { return NULL; }
-
-    char *content = calloc(1, sizeof(char) * (length + 1));
-
-    strncpy(content, part->first, length);
-
-    return content;
-}
-
-char *
-fetch_port(char *uri_port, char *default_port) {
-    return (uri_port == NULL || strlen(uri_port) == 0) ? default_port : uri_port;
-}
-
-UriUriA *
-parse_url(char *url)
-{
-    UriParserStateA state;
-    UriUriA *uri = malloc(sizeof(UriUriA));
-
-    state.uri = uri;
-    if (uriParseUriA(&state, url) != URI_SUCCESS) {
-        uriFreeUriMembersA(uri);
-        free(uri);
-
-        return NULL;
-    }
-
-    return uri;
-}
-
-void
-fetch_path(Buffer **path, UriUriA *uri)
-{
-    UriPathSegmentA *loc = uri->pathHead;
-
-    char *part = NULL;
-
-    while (loc != NULL) {
-        part = fetch_uri_part(&loc->text);
-
-        buffer_append(*path, "/", 1);
-        buffer_append(*path, part, length_of(&loc->text));
-
-        free(part);
-
-        loc = loc->next;
-    }
-
-    if (buffer_len(*path) == 0) {
-        buffer_append(*path, "/", 1);
-    }
 }
 
 int
 main(int argc, char *argv[])
 {
     Buffer *response = buffer_alloc(BUF_SIZE);
-    Buffer *path     = buffer_alloc(BUF_SIZE);
 
     int status = 0;
     int sockfd = 0;
     struct addrinfo *res = NULL;
 
-    char *hostname, *port_from_uri, *port;
+    char *hostname, *port_from_uri, *port, *path;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: http <url>\n");
@@ -190,12 +134,12 @@ main(int argc, char *argv[])
         return 1;
     }
 
-    UriUriA *uri = parse_url(argv[1]);
+    UriUriA *uri = url_parse(argv[1]);
 
     hostname      = fetch_uri_part(&uri->hostText);
     port_from_uri = fetch_uri_part(&uri->portText);
 
-    fetch_path(&path, uri);
+    path = url_path(uri);
 
     port = fetch_port(port_from_uri, DEFAULT_PORT);
 
@@ -207,7 +151,7 @@ main(int argc, char *argv[])
     sockfd = make_connection(res);
     error_unless(sockfd > 0, "Could not make connection to '%s' on port '%s'", hostname, port);
 
-    status = make_request(sockfd, hostname, path->contents);
+    status = make_request(sockfd, hostname, path);
     error_unless(status > 0, "Sending request failed");
 
     status = fetch_response(sockfd, &response, RECV_SIZE);
@@ -220,10 +164,12 @@ main(int argc, char *argv[])
     freeaddrinfo(res);
     uriFreeUriMembersA(uri);
     buffer_free(response);
-    buffer_free(path);
+
     free(hostname);
     free(port_from_uri);
     free(uri);
+    free(path);
+
     return 0;
 
 error:
@@ -232,10 +178,11 @@ error:
 
     uriFreeUriMembersA(uri);
     buffer_free(response);
-    buffer_free(path);
+
     free(hostname);
     free(port_from_uri);
     free(uri);
+    free(path);
 
     return 1;
 }
