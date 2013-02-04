@@ -1,2 +1,3 @@
 http
 *.o
+*.dSYM

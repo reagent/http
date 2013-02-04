@@ -1,12 +1,27 @@
 #ifndef URL_H
 #define URL_H
 
-#define URL_PATH_BUFFER_SIZE 512
+#include <Uri.h>
+#include <buffer.h>
 
-int length_of(UriTextRangeA *part);
-char *fetch_uri_part(UriTextRangeA *part);
-char *fetch_port(char *uri_port, char *default_port);
-UriUriA *url_parse(char *url);
-char *url_path(UriUriA *uri);
+#include "dbg.h"
+
+#define URL_PATH_BUFFER_SIZE 512
+#define DEFAULT_PORT "80"
+
+#define url_free_part(P) if(P) { free(P); }
+
+typedef struct Url {
+    char *scheme;
+    char *hostname;
+    char *port;
+    char *path;
+    char *query;
+    char *fragment;
+} Url;
+
+Url *url_parse(char *url);
+void url_free(Url *url);
+
 
 #endif
