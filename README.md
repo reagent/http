@@ -5,6 +5,7 @@ This is just a simple implementation of an HTTP client written in C.  It uses th
 ## Dependencies
 
 * [uriparser](http://uriparser.sourceforge.net/) -- TODO: build instructions
+    * if you are using ubuntu, you can use `sudo apt install liburiparser-dev`
 
 ## Installation
 
