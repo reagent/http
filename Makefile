@@ -1,5 +1,5 @@
-CFLAGS=-static -Wall -g -I/usr/local/uriparser/include/uriparser -I./vendor/buffer/src
-LDFLAGS=-L/usr/local/uriparser/lib -luriparser -L./vendor/buffer/build -lbuffer
+CFLAGS=-static -Wall -g -I/usr/local/include/uriparser/ -I./vendor/buffer/src
+LDFLAGS=-L/usr/local/lib/ -L./vendor/buffer/build -lbuffer -luriparser 
 
 SOURCES=$(wildcard src/**/*.c src/*.c)
 OBJECTS=$(patsubst %.c,%.o,$(SOURCES))
@@ -9,7 +9,7 @@ TARGET=bin/http
 all: $(TARGET)
 
 $(TARGET): build $(OBJECTS)
-	$(CC) $(LDFLAGS) -o $@ $(OBJECTS)
+	$(CC) $(OBJECTS) $(LDFLAGS)  -o $@ 
 
 build:
 	@mkdir -p bin
